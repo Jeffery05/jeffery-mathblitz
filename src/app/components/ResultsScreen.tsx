@@ -19,6 +19,7 @@ const OP_LABELS: Record<Operation, string> = {
   sub: '−',
   mul: '×',
   div: '÷',
+  sq:  'x²',
 }
 
 const OP_NAMES: Record<Operation, string> = {
@@ -26,6 +27,7 @@ const OP_NAMES: Record<Operation, string> = {
   sub: 'subtraction',
   mul: 'multiplication',
   div: 'division',
+  sq:  'squares',
 }
 
 const TRASH_TALK = [

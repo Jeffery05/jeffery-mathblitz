@@ -1,4 +1,4 @@
-export type Operation = 'add' | 'sub' | 'mul' | 'div'
+export type Operation = 'add' | 'sub' | 'mul' | 'div' | 'sq'
 
 export interface RangePair {
   min1: number
@@ -12,6 +12,7 @@ export interface Settings {
   operations: Operation[]
   addRange: RangePair
   mulRange: RangePair
+  sqMax: number
 }
 
 export interface Question {
@@ -79,6 +80,10 @@ export function generateQuestion(settings: Settings): Question {
         return { a: product, b: y, op, answer: x, display: `${product} ÷ ${y}` }
       }
     }
+    case 'sq': {
+      const x = randInt(1, settings.sqMax)
+      return { a: x, b: x, op, answer: x * x, display: `${x}²` }
+    }
   }
 }
 
@@ -89,6 +94,7 @@ export function computeStats(attempts: Attempt[]): SessionStats {
     sub: { correct: 0, total: 0, totalMs: 0 },
     mul: { correct: 0, total: 0, totalMs: 0 },
     div: { correct: 0, total: 0, totalMs: 0 },
+    sq:  { correct: 0, total: 0, totalMs: 0 },
   }
   let totalTime = 0
   for (const a of attempts) {
@@ -112,4 +118,5 @@ export const DEFAULT_SETTINGS: Settings = {
   operations: ['add', 'sub', 'mul', 'div'],
   addRange: { min1: 2, max1: 100, min2: 2, max2: 100 },
   mulRange: { min1: 2, max1: 12, min2: 2, max2: 100 },
+  sqMax: 60,
 }

@@ -17,6 +17,7 @@ const OPS: { key: Operation; label: string }[] = [
   { key: 'sub', label: '−' },
   { key: 'mul', label: '×' },
   { key: 'div', label: '÷' },
+  { key: 'sq',  label: 'x²' },
 ]
 
 export default function HomeScreen({ settings, onChange, onStart }: Props) {
@@ -92,7 +93,7 @@ export default function HomeScreen({ settings, onChange, onStart }: Props) {
 
         <div className="bg-slate-900 rounded-2xl p-4">
           <p className="text-slate-500 text-xs mb-3 font-medium uppercase tracking-widest">Operations</p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {OPS.map(({ key, label }) => (
               <button
                 key={key}
@@ -128,6 +129,24 @@ export default function HomeScreen({ settings, onChange, onStart }: Props) {
               separator="×"
               onChange={r => onChange({ ...settings, mulRange: r })}
             />
+            {settings.operations.includes('sq') && (
+              <>
+                <div className="border-t border-slate-800" />
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-300 font-mono font-bold text-lg w-4">x²</span>
+                    <span className="text-slate-600 text-xs">squaring only</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-slate-400 text-sm pl-6">
+                    <span>1 to</span>
+                    <NumInput
+                      value={settings.sqMax}
+                      onChange={v => onChange({ ...settings, sqMax: Math.max(1, v) })}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
