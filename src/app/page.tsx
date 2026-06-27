@@ -1,65 +1,179 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Session } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
+import { getProfile, saveSessionToDb, signOut, Profile, Group } from '@/lib/db'
+import { Settings, Attempt, SessionStats, DEFAULT_SETTINGS, computeStats } from '@/lib/math'
+import { StreakResult, saveSession as saveLocalSession, saveGroupDailyRecord } from '@/lib/storage'
+import HomeScreen from './components/HomeScreen'
+import GameScreen from './components/GameScreen'
+import ResultsScreen from './components/ResultsScreen'
+import AuthScreen from './components/AuthScreen'
+import GroupsScreen from './components/GroupsScreen'
+import LeaderboardScreen from './components/LeaderboardScreen'
+import BottomNav from './components/BottomNav'
+
+type PlayScreen = 'home' | 'playing' | 'results'
+type Tab = 'play' | 'groups'
 
 export default function Home() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [authReady, setAuthReady] = useState(false)
+
+  const [tab, setTab] = useState<Tab>('play')
+  const [playScreen, setPlayScreen] = useState<PlayScreen>('home')
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
+  const [stats, setStats] = useState<SessionStats | null>(null)
+  const [streakResult, setStreakResult] = useState<StreakResult | null>(null)
+  const [gameKey, setGameKey] = useState(0)
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
+  // null = practice, group.id = daily for that group
+  const [dailyGroupId, setDailyGroupId] = useState<string | null>(null)
+
+  // Auth listener
+  useEffect(() => {
+    if (!supabase) { setAuthReady(true); return }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setAuthReady(true)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s)
+      if (!s) { setProfile(null); setSelectedGroup(null) }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (session) {
+      getProfile(session.user.id).then(setProfile).catch(() => {})
+    }
+  }, [session])
+
+  const handleGameEnd = async (attempts: Attempt[]) => {
+    const computed = computeStats(attempts)
+    const result = saveLocalSession(computed.score, settings.duration)
+
+    if (dailyGroupId) {
+      saveGroupDailyRecord(computed.score, settings.duration, dailyGroupId)
+    }
+
+    if (session) {
+      saveSessionToDb(
+        session.user.id,
+        computed.score,
+        settings.duration,
+        dailyGroupId !== null,
+        dailyGroupId,
+      ).catch(() => {})
+    }
+
+    setStats(computed)
+    setStreakResult(result)
+    setPlayScreen('results')
+  }
+
+  // groupId = null means practice; a group ID means daily for that group
+  const startGame = (groupId: string | null = null) => {
+    setDailyGroupId(groupId)
+    setGameKey(k => k + 1)
+    setPlayScreen('playing')
+  }
+
+  const handleTabChange = (t: Tab) => {
+    setTab(t)
+    if (t === 'play') setPlayScreen('home')
+    if (t === 'groups') setSelectedGroup(null)
+  }
+
+  const isPlaying = playScreen === 'playing'
+  const showNav = !isPlaying
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-slate-700 text-sm">Loading...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div className="min-h-screen bg-slate-950">
+      <div className={showNav ? 'pb-20' : ''}>
+
+        {/* Play tab */}
+        {(tab === 'play' || isPlaying) && (
+          <>
+            {playScreen === 'home' && (
+              <HomeScreen settings={settings} onChange={setSettings} onStart={() => startGame(null)} />
+            )}
+            {playScreen === 'playing' && (
+              <GameScreen key={gameKey} settings={settings} onGameEnd={handleGameEnd} />
+            )}
+            {playScreen === 'results' && stats && streakResult && (
+              <ResultsScreen
+                stats={stats}
+                streakResult={streakResult}
+                duration={settings.duration}
+                isDaily={dailyGroupId !== null}
+                onPlayAgain={() => startGame(null)}
+                onSettings={() => setPlayScreen('home')}
+                onViewLeaderboard={selectedGroup ? () => {
+                  setTab('groups')
+                  setPlayScreen('home')
+                } : undefined}
+              />
+            )}
+          </>
+        )}
+
+        {/* Groups tab */}
+        {tab === 'groups' && !isPlaying && (
+          !supabase ? (
+            <NotConfigured />
+          ) : !session ? (
+            <AuthScreen onAuth={(s) => setSession(s)} />
+          ) : selectedGroup ? (
+            <LeaderboardScreen
+              group={selectedGroup}
+              onBack={() => setSelectedGroup(null)}
+              onPlayDaily={(groupId) => {
+                setTab('play')
+                startGame(groupId)
+              }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          ) : (
+            <GroupsScreen
+              userId={session.user.id}
+              username={profile?.username ?? session.user.email ?? ''}
+              onSelectGroup={setSelectedGroup}
+              onSignOut={() => { signOut(); setSession(null) }}
+            />
+          )
+        )}
+      </div>
+
+      {showNav && (
+        <BottomNav tab={tab} onTabChange={handleTabChange} />
+      )}
     </div>
-  );
+  )
+}
+
+function NotConfigured() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center bg-slate-950">
+      <div className="text-5xl mb-4">🔧</div>
+      <h2 className="text-xl font-bold text-white mb-2">Multiplayer not set up</h2>
+      <p className="text-slate-500 text-sm leading-relaxed">
+        Add your Supabase credentials to{' '}
+        <span className="font-mono text-slate-400">.env.local</span> and run the schema in{' '}
+        <span className="font-mono text-slate-400">supabase/schema.sql</span>.
+      </p>
+    </div>
+  )
 }
