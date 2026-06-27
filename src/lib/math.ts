@@ -70,15 +70,10 @@ export function generateQuestion(settings: Settings): Question {
       return { a, b, op, answer: a * b, display: `${a} × ${b}` }
     }
     case 'div': {
-      // "Multiplication in reverse": generate a × b, ask for a missing factor
       const x = randInt(mulRange.min1, mulRange.max1)
       const y = randInt(mulRange.min2, mulRange.max2)
       const product = x * y
-      if (Math.random() < 0.5) {
-        return { a: product, b: x, op, answer: y, display: `${product} ÷ ${x}` }
-      } else {
-        return { a: product, b: y, op, answer: x, display: `${product} ÷ ${y}` }
-      }
+      return { a: product, b: x, op, answer: y, display: `${product} ÷ ${x}` }
     }
     case 'sq': {
       const x = randInt(1, settings.sqMax)
