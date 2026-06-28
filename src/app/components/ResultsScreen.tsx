@@ -9,6 +9,7 @@ interface Props {
   streakResult: StreakResult
   duration: number
   isDaily: boolean
+  shareGroupId?: string
   onPlayAgain: () => void
   onSettings: () => void
   onViewLeaderboard?: () => void
@@ -40,7 +41,7 @@ const TRASH_TALK = [
   (s: number, d: number) => `${s} in ${d}s. Zetamac could never. 😤`,
 ]
 
-export default function ResultsScreen({ stats, streakResult, duration, isDaily, onPlayAgain, onSettings, onViewLeaderboard }: Props) {
+export default function ResultsScreen({ stats, streakResult, duration, isDaily, shareGroupId, onPlayAgain, onSettings, onViewLeaderboard }: Props) {
   const [copied, setCopied] = useState(false)
 
   const avgSec = (stats.avgTimeMs / 1000).toFixed(1)
@@ -57,8 +58,10 @@ export default function ResultsScreen({ stats, streakResult, duration, isDaily, 
 
   const handleShare = async () => {
     const fn = TRASH_TALK[Math.floor(Math.random() * TRASH_TALK.length)]
-    const msg = fn(stats.score, duration)
-    await navigator.clipboard.writeText(msg)
+    const link = shareGroupId
+      ? `\n\n👇 Challenge me: ${window.location.origin}/?group=${shareGroupId}`
+      : ''
+    await navigator.clipboard.writeText(fn(stats.score, duration) + link)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

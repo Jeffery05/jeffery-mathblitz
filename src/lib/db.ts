@@ -99,6 +99,15 @@ export async function joinGroup(inviteCode: string, userId: string): Promise<Gro
   return group
 }
 
+export async function getGroupById(groupId: string): Promise<Group | null> {
+  const { data } = await client()
+    .from('groups')
+    .select('id, name, invite_code, created_by')
+    .eq('id', groupId)
+    .single()
+  return data ?? null
+}
+
 export async function getUserGroups(userId: string): Promise<Group[]> {
   const { data, error } = await client()
     .from('group_members')

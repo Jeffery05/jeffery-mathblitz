@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-import { getProfile, saveSessionToDb, signOut, Profile, Group } from '@/lib/db'
+import { getProfile, getGroupById, saveSessionToDb, signOut, Profile, Group } from '@/lib/db'
 import { Settings, Attempt, SessionStats, DEFAULT_SETTINGS, computeStats } from '@/lib/math'
 import { StreakResult, saveSession as saveLocalSession, saveGroupDailyRecord } from '@/lib/storage'
 import HomeScreen from './components/HomeScreen'
@@ -31,6 +31,22 @@ export default function Home() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   // null = practice, group.id = daily for that group
   const [dailyGroupId, setDailyGroupId] = useState<string | null>(null)
+  const [pendingGroupId, setPendingGroupId] = useState<string | null>(null)
+
+  // Read ?group= deep link on mount
+  useEffect(() => {
+    const g = new URLSearchParams(window.location.search).get('group')
+    if (g) setPendingGroupId(g)
+  }, [])
+
+  // When auth settles and we have a pending group, navigate to it
+  useEffect(() => {
+    if (!authReady || !session || !pendingGroupId) return
+    setPendingGroupId(null)
+    getGroupById(pendingGroupId).then(group => {
+      if (group) { setSelectedGroup(group); setTab('groups') }
+    }).catch(() => {})
+  }, [authReady, session, pendingGroupId])
 
   // Auth listener
   useEffect(() => {
@@ -120,6 +136,7 @@ export default function Home() {
                 streakResult={streakResult}
                 duration={settings.duration}
                 isDaily={dailyGroupId !== null}
+                shareGroupId={dailyGroupId ?? undefined}
                 onPlayAgain={() => startGame(null)}
                 onSettings={() => setPlayScreen('home')}
                 onViewLeaderboard={selectedGroup ? () => {
