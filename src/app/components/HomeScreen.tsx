@@ -1,8 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Settings, Operation, RangePair } from '@/lib/math'
 import { loadHomeStats } from '@/lib/storage'
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
 
 interface Props {
   settings: Settings
@@ -22,10 +27,31 @@ const OPS: { key: Operation; label: string }[] = [
 
 export default function HomeScreen({ settings, onChange, onStart }: Props) {
   const [userStats, setUserStats] = useState<{ streak: number; pb: number } | null>(null)
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [installDismissed, setInstallDismissed] = useState(false)
+  const promptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
     setUserStats(loadHomeStats(settings.duration))
   }, [settings.duration])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      promptRef.current = e as BeforeInstallPromptEvent
+      setInstallPrompt(e as BeforeInstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstall = async () => {
+    if (!promptRef.current) return
+    promptRef.current.prompt()
+    const { outcome } = await promptRef.current.userChoice
+    if (outcome === 'accepted') setInstallPrompt(null)
+    promptRef.current = null
+  }
 
   const toggleOp = (op: Operation) => {
     const active = settings.operations.includes(op)
@@ -149,6 +175,25 @@ export default function HomeScreen({ settings, onChange, onStart }: Props) {
             )}
           </div>
         </div>
+
+        {installPrompt && !installDismissed && (
+          <div className="flex items-center gap-3 bg-slate-900 rounded-2xl px-4 py-3">
+            <span className="text-xl">📲</span>
+            <p className="flex-1 text-slate-300 text-sm font-medium">Install as app</p>
+            <button
+              onClick={handleInstall}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-3 py-1.5 rounded-xl transition-colors"
+            >
+              Install
+            </button>
+            <button
+              onClick={() => setInstallDismissed(true)}
+              className="text-slate-600 hover:text-slate-400 text-lg leading-none transition-colors"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         <button
           onClick={onStart}
